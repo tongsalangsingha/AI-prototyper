@@ -1,0 +1,8 @@
+{
+  "name": "AI Prototyper",
+  "id": "1234567890",
+  "api": "1.0.0",
+  "main": "plugin.js",
+  "ui": "index.html",
+  "editorType": ["figma"]
+}
