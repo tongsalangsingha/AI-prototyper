@@ -1,96 +1,37 @@
-# AI-prototyper
-Figma's plugin that apply generative AI to create your desing and can be edit on Figma application.
+# AI Prototyper: LLM-Driven GUI Generation with a Decomposition-Based Workflow
 
-# Overview
+AI Prototyper is a Figma plugin and local Node.js backend that generates editable UI prototypes from natural-language prompts.  
+It replicates and extends the **GUIDE** methodology by:
 
-AI Prototyper is a Figma plugin designed to accelerate the UI/UX design workflow by leveraging generative AI. Users can input natural language prompts describing a desired UI screen or component layout, and the plugin generates an editable prototype directly on the Figma canvas using standard Figma elements (Rectangles, Text, etc.).
+- **Decomposing** a high-level prompt into a list of GUI features.
+- Using **retrieval-augmented generation (RAG)** to implement each feature with a fixed component library.
+- Rendering the result as **native Figma nodes** using auto-layout.
 
-Unlike approaches that generate static images or code snippets, AI Prototyper focuses on creating high-fidelity, editable designs that seamlessly integrate into a designer's existing Figma workflow.
+---
 
-# Features
+## Key Features
 
-Prompt-Based Generation: Create UI prototypes using natural language descriptions.
+- **Decomposition-based generation**  
+  - Converts a high-level description (e.g. “A login screen for a fitness app”) into a structured list of features with names and descriptions.
 
-Editable Figma Output: Generates designs using native Figma layers (Frames, Rectangles, Text) that are fully editable.
+- **Retrieval-augmented implementation (RAG)**  
+  - For each feature, the backend:
+    1. Asks the LLM to select relevant components from `my_components.js`.  
+    2. Retrieves full specs for those components.  
+    3. Asks the LLM to output a JSON component tree using only the retrieved components.  
+  - This keeps generation grounded in the component library and improves structural consistency.
 
-Component Structure: Breaks down prompts into logical UI components (Headers, Text Fields, Buttons, Switches, Checkboxes, RadioButtons).
+- **Figma-native prototypes**  
+  - The sandbox script (`plugin.js`) turns the component JSON into Figma frames using auto-layout, text styles, and SVG icons from `my_icons_svg.js`.
+  - All output is fully editable in Figma.
 
-JSON-Based Workflow: Utilizes a structured JSON format to represent the UI design, facilitating communication between the AI and the Figma plugin.
+- **Custom feature refinement**  
+  - When you add a custom feature, the plugin calls `/check-feature-consistency` to turn your free-text idea into a clean **name + description** entry in the feature list instead of inserting the raw prompt.
 
-Basic Styling: Supports simple styling instructions like text alignment and button color hints.
+- **Multilingual prompts (experimental)**  
+  - Prompts and labels can be issued in English or other languages/scripts (e.g. Thai, Malayalam).  
+  - Structural behaviour is robust; localisation quality depends on the LLM’s language support.
 
+---
 
-
-# Inspiration & Academic Context
-
-
-This project draws significant inspiration from the concepts presented in the following research paper:
-
-Kolthoff, K., Kretzer, F., Bartelt, C., Maedche, A., & Ponzetto, S. P. (2025). GUIDE: LLM-driven GUI generation decomposition for automated prototyping. In 2025 IEEE/ACM 47th International Conference on Software Engineering: Companion Proceedings (ICSE-Companion). IEEE. https://doi.org/10.1109/ICSE-COMPANION.66252.2025.00010
-
-Specifically, this plugin attempts to implement similar ideas of prompt decomposition (breaking down a high-level request into smaller UI features) and leveraging a structured approach to translate AI output into concrete, editable designs, moving beyond static image generation.
-
-PhD Exploration Statement: This project serves as an experimental exploration and practical implementation exercise forming part of ongoing PhD research in Human-Computer Interaction, AI in Design Tools. It is a work-in-progress used for learning and testing concepts related to AI-assisted design prototyping.
-
-
-# Setup
-
-
-Figma:
-
-Install the Figma Desktop App.
-
-Open Figma, go to Plugins > Development > Import plugin from manifest....
-
-Select the manifest.json file located in the root of this project directory.
-
-
-AI Server:
-
-Navigate to the server/ directory in your terminal.
-
-Install dependencies: npm install express @google/generative-ai cors
-
-(Optional but recommended) Install nodemon globally: sudo npm install -g nodemon (use sudo if needed on Mac/Linux).
-
-Add API Key: Open server/server.js and replace "YOUR_API_KEY_GOES_HERE" (or the existing key) with your actual Google Gemini API key obtained from Google AI Studio.
-
-Enable Google Cloud Services: Ensure the "Generative Language API" (or similar, like Vertex AI) and Billing are enabled in the Google Cloud project associated with your API key.
-
-Run the server: nodemon server.js (or node server.js). Keep this terminal window running.
-
-
-Usage
-
-Ensure the AI Server is running (see Setup).
-
-In Figma, open a design file.
-
-Run the plugin: Plugins > Development > AI Prototyper (or use the shortcut Cmd+Option+P / Ctrl+Alt+P).
-
-Enter a description of the UI you want to create in the "Your Prompt" text area (e.g., "A login screen for a mobile banking app", "Settings page with notification toggles").
-
-Select the target device size from the dropdown.
-
-Click "Generate".
-
-The plugin will communicate with the AI server and render the editable prototype on your canvas. A new frame will be created next to existing frames.
-
-Future Work / Contributing
-
-(Optional: Add sections here if you plan to expand the project or accept contributions)
-
-Expand component library (based on GUIDE data or Material Design).
-
-Implement icon support.
-
-Add more sophisticated styling options.
-
-Improve frame positioning logic.
-
-Refine error handling and user feedback.
-
-# 
-
-This project is for research and educational purposes.
-This project is AI coding assited.
+## Project Structure
