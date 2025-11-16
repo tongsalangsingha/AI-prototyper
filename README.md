@@ -35,4 +35,4 @@ It replicates and extends the **GUIDE** methodology by:
 ---
 
 ## Project Structure
-![overview of plugin structure](plugin_architechture.png)
+![overview of plugin structure](plugin_architecture.png)
