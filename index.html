@@ -16,10 +16,48 @@
             animation: lds-dual-ring 1.2s linear infinite;
         }
         @keyframes lds-dual-ring { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .feature-item {
+            display: flex; align-items: center; justify-content: space-between;
+            background-color: #333; padding: 8px 12px; border-radius: 6px;
+        }
+        .feature-item.drawn-success { background-color: #1a4a24; color: #a0a0a0; }
+        .feature-item.drawn-error { background-color: #dc3545; color: white; }
+        .feature-item-name { flex-grow: 1; margin-right: 8px; font-size: 14px; }
+        .feature-item-actions { display: flex; gap: 6px; }
+        .feature-item-actions button {
+            color: white; font-size: 12px; font-weight: 500;
+            padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer;
+        }
+        .feature-item-description {
+            display: block;
+            margin-top: 2px;
+            font-size: 11px;        /* smaller text */
+            line-height: 1.3;
+            color: #9CA3AF;         /* light gray (similar to Tailwind gray-400) */
+        }
+
+        .btn-draw { background-color: #4A90E2; }
+        .btn-draw:hover { background-color: #357ABD; }
+        .btn-draw:disabled { background-color: #555; color: #999; cursor: not-allowed; }
+        .btn-delete { background-color: #c0392b; }
+        .btn-delete:hover { background-color: #a03225; }
+        
+        /* --- THIS IS THE CSS FIX (Line 39) --- */
+        #features-list { 
+            max-height: 16rem; /* 256px */
+            overflow-y: auto; 
+            padding-right: 0.5rem; 
+        }
+        
+        .btn-primary { background-color: #0d6efd; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-success { background-color: #198754; }
     </style>
 </head>
 <body class="p-4">
-    <div id="app" class="space-y-4">
+    
+    <div id="main-view" class="space-y-4">
         <header class="text-center">
             <h1 class="text-lg font-bold">AI Prototyper</h1>
             <p class="text-sm text-gray-400">Create editable prototypes with AI</p>
@@ -44,116 +82,340 @@
         
         <div class="flex flex-col space-y-2">
             <button id="generate-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-all duration-200">
-                <span id="generate-text">Generate</span>
+                <span id="generate-text">Generate Features</span>
                 <div id="loader" class="hidden lds-dual-ring"></div>
             </button>
         </div>
-
-        <!-- Status/Error Message Area -->
+        
         <div id="status-container" class="text-center h-8 flex items-center justify-center">
              <p id="status-message" class="text-sm text-gray-400"></p>
         </div>
     </div>
+    
+    <div id="features-view" class="hidden space-y-4">
+        <header class="text-center">
+            <h1 class="text-lg font-bold">Generated Features</h1>
+            <p class="text-sm text-gray-400">Review, add, and draw your components.</p>
+        </header>
+        
+        <div id="features-list" class="space-y-2">
+            </div>
+
+        <div class="space-y-2 border-t border-gray-600 pt-4">
+            <label for="add-feature-prompt" class="block text-sm font-medium text-gray-300">Add Custom Feature</label>
+            <textarea id="add-feature-prompt" rows="2" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-white p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., A footer with copyright text"></textarea>
+            <button id="add-feature-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md text-sm">Add Feature to List</button>
+        </div>
+        
+        <div class="border-t border-gray-600 pt-4 space-y-2">
+            <button id="draw-all-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md">Draw All Features</button>
+            
+            <button id="finish-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">
+                Finish & Start New
+            </button>
+            
+            <button id="start-over-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md">
+                Cancel & Delete Frame
+            </button>
+        </div>
+
+        <div id="status-container-features" class="text-center h-8 flex items-center justify-center">
+             <p id="status-message-features" class="text-sm text-gray-400"></p>
+        </div>
+    </div>
+
 
     <script>
-        // This wrapper ensures the script runs only after the HTML is fully loaded
         document.addEventListener('DOMContentLoaded', () => {
+            // --- UI Elements ---
+            const mainView = document.getElementById('main-view');
+            const featuresView = document.getElementById('features-view');
             const generateBtn = document.getElementById('generate-btn');
-            const generateText = document.getElementById('generate-text');
             const loader = document.getElementById('loader');
             const statusMessage = document.getElementById('status-message');
+            const featuresList = document.getElementById('features-list');
+            const drawAllBtn = document.getElementById('draw-all-btn');
+            const startOverBtn = document.getElementById('start-over-btn');
+            const statusMessageFeatures = document.getElementById('status-message-features');
+            
+            const addFeaturePrompt = document.getElementById('add-feature-prompt');
+            const addFeatureBtn = document.getElementById('add-feature-btn');
+            const finishBtn = document.getElementById('finish-btn');
+            
+            // --- State ---
+            let currentFeatures = [];
+            let isDrawing = false;
+            let currentDrawResolver = null;
 
-            // This should now work, as the button exists
-            generateBtn.onclick = () => {
+            // --- Main Generate Button ---
+            generateBtn.onclick = async () => {
                 const prompt = document.getElementById('prompt').value;
                 if (!prompt) {
-                    statusMessage.textContent = 'Please enter a prompt.';
-                    statusMessage.className = 'text-sm text-red-400';
+                    setLoadingState(false, 'Please enter a prompt.', 'main');
                     return;
                 }
                 
-                setLoadingState(true, '1/3: Calling AI server...');
+                setLoadingState(true, '1/2: Generating feature list...', 'main');
 
-                // Send the prompt to the logic to start the process
-                parent.postMessage({ pluginMessage: { 
-                    type: 'start-generation', 
-                    prompt, 
-                    device: document.getElementById('device').value 
-                } }, '*');
+                try {
+                    const featureData = await callAIServer('/generate-features', { prompt });
+                    const features = JSON.parse(featureData.featuresJson);
+                    
+                    if (!Array.isArray(features) || features.length === 0) {
+                        throw new Error("AI did not return a valid feature list.");
+                    }
+                    
+                    currentFeatures = features.map(f => ({ ...f, isDrawn: false }));
+                    
+                    parent.postMessage({ pluginMessage: { 
+                        type: 'start-generation', 
+                        prompt, 
+                        device: document.getElementById('device').value 
+                    } }, '*');
+
+                    renderFeatureList();
+                    showView('features-view');
+                    setLoadingState(false, 'Review and draw features.', 'features');
+
+                } catch (error) {
+                    setLoadingState(false, `Error: ${error.message}`, 'main');
+                }
             };
 
-            // Listen for messages from the plugin logic (plugin.js)
+            // --- Feature View Buttons ---
+            drawAllBtn.onclick = () => drawAllFeatures();
+            
+            startOverBtn.onclick = () => {
+                parent.postMessage({ pluginMessage: { type: 'cancel-generation' } }, '*');
+                resetUI();
+            };
+            
+            finishBtn.onclick = () => {
+                parent.postMessage({ pluginMessage: { type: 'finish-generation' } }, '*');
+                resetUI();
+            };
+            
+            addFeatureBtn.onclick = async () => {
+                const description = addFeaturePrompt.value.trim();
+                if (!description) {
+                    setLoadingState(false, 'Please type a feature description.', 'features');
+                    return;
+                }
+
+                try {
+                    setLoadingState(true, 'Analysing custom feature...', 'features', null);
+
+                    const response = await fetch('http://localhost:3000/check-feature-consistency', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            description,
+                            currentFeatures: currentFeatures.map(f => ({
+                                id: f.id,
+                                name: f.name,
+                                description: f.description
+                            }))
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        const msg = data && data.error ? data.error : 'Failed to refine custom feature.';
+                        setLoadingState(false, `Error: ${msg}`, 'features', null);
+                        return;
+                    }
+
+                    const newFeature = {
+                        id: 'f' + Date.now(),
+                        name: data.name || description.substring(0, 30),
+                        description: data.description || description,
+                        isDrawn: false
+                    };
+
+                    currentFeatures.push(newFeature);
+                    renderFeatureList();
+                    addFeaturePrompt.value = '';
+                    setLoadingState(false, 'Custom feature added.', 'features', null);
+
+                } catch (err) {
+                    console.error('Error refining custom feature:', err);
+                    setLoadingState(false, 'Error: Could not contact AI service.', 'features', null);
+                }
+            };
+
+
+            // --- Listen for messages from plugin.js ---
             window.onmessage = async (event) => {
                 const msg = event.data.pluginMessage;
                 if (!msg) return;
 
-                if (msg.type === 'get-ai-response') {
-                    // Logic told us to call the AI
-                    setLoadingState(true, '2/3: Generating AI blueprint...');
-                    try {
-                        const aiResponseJson = await callAIServer(msg.prompt);
-                        
-                        // Send the AI's JSON blueprint back to the logic
-                        parent.postMessage({ pluginMessage: { 
-                            type: 'render-design', 
-                            json: aiResponseJson,
-                            frameConfig: msg.frameConfig 
-                        } }, '*');
-
-                    } catch (error) {
-                        console.error('AI Server Error:', error);
-                        setLoadingState(false, `Error: ${error.message}`);
-                    }
-
-                } else if (msg.type === 'generation-complete') {
-                    // Logic is all done!
-                    setLoadingState(false, '✅ Prototype created!');
-                    
+                if (msg.type === 'generation-complete') {
+                    if (currentDrawResolver) currentDrawResolver(true);
                 } else if (msg.type === 'error') {
-                    // Logic ran into an error
-                    setLoadingState(false, `Error: ${msg.message}`);
+                    if (currentDrawResolver) currentDrawResolver(false);
                 }
             };
 
-            // This function calls our Node.js server
-            async function callAIServer(prompt) {
+            // --- Core Logic Functions ---
+            
+            async function callAIServer(endpoint, body) {
                 try {
-                    const response = await fetch('http://localhost:3000/generate', {
+                    const response = await fetch(`http://localhost:3000${endpoint}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt: prompt })
+                        body: JSON.stringify(body)
                     });
 
                     if (!response.ok) {
-                        throw new Error(`Server error: ${response.statusText}`);
+                        const errData = await response.json();
+                        throw new Error(errData.error || `Server error: ${response.statusText}`);
                     }
                     
-                    const data = await response.json();
-                    if (data.error) {
-                        throw new Error(`AI error: ${data.error}`);
-                    }
-                    
-                    // The server gives us the JSON as a string, so we parse it
-                    return JSON.parse(data.json);
+                    return await response.json();
 
                 } catch (error) {
                     console.error('Fetch error:', error);
-                    throw new Error('Could not connect to AI server. Is it running?');
+                    throw new Error(`Could not connect to AI server. Is it running?`);
+                }
+            }
+            
+            function renderFeatureList() {
+                featuresList.innerHTML = '';
+                currentFeatures.forEach((feature) => {
+                    const featureElement = document.createElement('div');
+                    featureElement.className = 'feature-item';
+                    featureElement.id = `feature-${feature.id}`;
+                    
+                    let buttonHtml = feature.isDrawn 
+                        ? `<button class="btn-draw" disabled>Drawn</button>`
+                        : `<button class="btn-draw" onclick="drawFeatureById('${feature.id}')">Draw</button>`;
+                    
+                    featureElement.innerHTML = `
+                        <div class="feature-item-text">
+                            <span class="feature-item-name">${feature.name}</span>
+                            <span class="feature-item-description">
+                                ${feature.description || ''}
+                            </span>
+                        </div>
+                        <div class="feature-item-actions">
+                            ${buttonHtml}
+                            <button class="btn-delete" onclick="deleteFeatureById('${feature.id}')">Delete</button>
+                        </div>
+                    `;
+                    
+                    if (feature.isDrawn) {
+                        featureElement.classList.add('drawn-success');
+                    }
+                    
+                    featuresList.appendChild(featureElement);
+                });
+            }
+
+            window.drawFeatureById = async (id) => {
+                if (isDrawing) return;
+                isDrawing = true;
+                const index = currentFeatures.findIndex(f => f.id === id);
+                if (index !== -1) {
+                    await drawFeature(index);
+                }
+                isDrawing = false;
+            };
+            
+            window.deleteFeatureById = (id) => {
+                if (isDrawing) {
+                    setLoadingState(false, "Cannot delete while drawing.", 'features');
+                    return;
+                }
+                currentFeatures = currentFeatures.filter(f => f.id !== id);
+                renderFeatureList();
+            };
+
+            async function drawFeature(index) {
+                const feature = currentFeatures[index];
+                if (feature.isDrawn) return;
+
+                const featureElement = document.getElementById(`feature-${feature.id}`);
+                const drawButton = featureElement.querySelector('.btn-draw');
+                drawButton.disabled = true;
+                setLoadingState(true, `Drawing: ${feature.name}...`, 'features');
+
+                try {
+                    const data = await callAIServer('/generate-implementation', { prompt: feature.description });
+                    const componentJson = JSON.parse(data.json);
+
+                    const renderSuccess = await new Promise((resolve) => {
+                        currentDrawResolver = resolve;
+                        parent.postMessage({ pluginMessage: { 
+                            type: 'render-design', 
+                            json: componentJson
+                        } }, '*');
+                    });
+
+                    if (renderSuccess) {
+                        feature.isDrawn = true;
+                        featureElement.classList.add('drawn-success');
+                        drawButton.textContent = 'Drawn';
+                        setLoadingState(false, `✅ ${feature.name} drawn!`, 'features');
+                    } else {
+                        throw new Error("Figma failed to render the feature.");
+                    }
+
+                } catch (error) {
+                    console.error(`Error drawing feature ${feature.id}:`, error);
+                    setLoadingState(false, `Error: ${error.message}`, 'features');
+                    featureElement.classList.add('drawn-error');
+                    drawButton.disabled = false;
                 }
             }
 
-            function setLoadingState(isLoading, message = '') {
-                statusMessage.textContent = message;
-                statusMessage.className = message.startsWith('Error') ? 'text-sm text-red-400' : 'text-sm text-gray-400';
+            async function drawAllFeatures() {
+                if (isDrawing) return;
+                isDrawing = true;
+                drawAllBtn.disabled = true;
+                for (let i = 0; i < currentFeatures.length; i++) {
+                    if (!currentFeatures[i].isDrawn) {
+                        await drawFeature(i);
+                    }
+                }
+                isDrawing = false;
+                drawAllBtn.disabled = false;
+                setLoadingState(false, 'All features drawn!', 'features');
+            }
+
+            function showView(viewId) {
+                if (viewId === 'features-view') {
+                    mainView.classList.add('hidden');
+                    featuresView.classList.remove('hidden');
+                } else {
+                    mainView.classList.remove('hidden');
+                    featuresView.classList.add('hidden');}
+            }
+            
+            function resetUI() {
+                currentFeatures = [];
+                isDrawing = false;
+                if(currentDrawResolver) currentDrawResolver(false);
+                showView('main-view');
+                setLoadingState(false, '', 'main');
+                setLoadingState(false, '', 'features');
+                document.getElementById('prompt').value = '';
+                featuresList.innerHTML = '';
+            }
+
+            function setLoadingState(isLoading, message = '', view = 'main') {
+                const status = (view === 'main') ? statusMessage : statusMessageFeatures;
+                const btn = (view === 'main') ? generateBtn : drawAllBtn;
+                
+                status.textContent = message;
+                status.className = message.startsWith('Error') ? 'text-sm text-red-400' : 'text-sm text-gray-400';
 
                 if (isLoading) {
-                    loader.classList.remove('hidden');
-                    generateBtn.disabled = true;
-                    generateBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    if (view === 'main') loader.classList.remove('hidden');
+                    if (btn) btn.disabled = true;
                 } else {
-                    loader.classList.add('hidden');
-                    generateBtn.disabled = false;
-                    generateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    if (view === 'main') loader.classList.add('hidden');
+                    if (btn) btn.disabled = false;
                 }
             }
         });
