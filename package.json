@@ -1,0 +1,8 @@
+{
+  "name": "ai-prototyper-v2",
+  "version": "2.5.0",
+  "type": "module",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}
