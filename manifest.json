@@ -1,8 +1,10 @@
 {
-  "name": "AI Prototyper",
+  "name": "AI Prototyper 2.5",
   "id": "1234567890",
   "api": "1.0.0",
   "main": "plugin.js",
   "ui": "index.html",
-  "editorType": ["figma"]
+  "editorType": [
+    "figma"
+  ]
 }
