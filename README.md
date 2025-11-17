@@ -27,11 +27,6 @@ It replicates and extends the **GUIDE** methodology by:
 
 - **Custom feature refinement**  
   - When you add a custom feature, the plugin calls `/check-feature-consistency` to turn your free-text idea into a clean **name + description** entry in the feature list instead of inserting the raw prompt.
-
-- **Multilingual prompts (experimental)**  
-  - Prompts and labels can be issued in English or other languages/scripts (e.g. Thai, Malayalam).  
-  - Structural behaviour is robust; localisation quality depends on the LLM’s language support.
-
 ---
 
 ## Project Structure
